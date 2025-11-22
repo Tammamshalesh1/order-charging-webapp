@@ -1,74 +1,71 @@
 import React, { useState } from "react";
-import { apiPost } from "../api";
 
-export default function OrderForm({ user, reload }) {
-  const [product, setProduct] = useState("شحن الماس");
-  const [details, setDetails] = useState("");
-  const [quantity, setQuantity] = useState(1);
-  const [price, setPrice] = useState(1);
+export default function OrderForm({ session }) {
+  const [form, setForm] = useState({
+    productId: "",
+    accountId: "",
+    amount: "",
+  });
 
-  async function createOrder(e) {
+  const [msg, setMsg] = useState("");
+
+  async function submit(e) {
     e.preventDefault();
+    setMsg("");
 
-    const res = await apiPost("/orders/create", {
-      userId: user.id,
-      userEmail: user.email,
-      product,
-      details,
-      quantity,
-      price,
-    });
+    const res = await fetch(
+      `${import.meta.env.VITE_API}/order`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: session?.token,
+        },
+        body: JSON.stringify(form),
+      }
+    );
 
-    if (res.ok) {
-      alert("تم إنشاء الطلب");
-      reload();
-      setDetails("");
-      setQuantity(1);
+    const data = await res.json();
+    if (data.ok) {
+      setMsg("تم إرسال الطلب بنجاح");
+      setForm({ productId: "", accountId: "", amount: "" });
+    } else {
+      setMsg(data.error || "حدث خطأ");
     }
   }
 
   return (
-    <div className="p-4 border rounded mb-4">
-      <h3 className="font-semibold text-lg mb-3">📝 إنشاء طلب شحن</h3>
+    <div className="p-6 max-w-md mx-auto">
+      <h2 className="text-xl font-bold mb-4">إنشاء طلب شحن</h2>
 
-      <form onSubmit={createOrder} className="space-y-2">
-
+      <form className="space-y-4" onSubmit={submit}>
         <input
-          className="border p-2 rounded w-full"
-          value={product}
-          onChange={(e) => setProduct(e.target.value)}
-          placeholder="المنتج"
+          className="border w-full px-3 py-2 rounded"
+          placeholder="معرف المنتج (Product ID)"
+          value={form.productId}
+          onChange={(e) => setForm({ ...form, productId: e.target.value })}
         />
 
         <input
-          className="border p-2 rounded w-full"
-          value={details}
-          onChange={(e) => setDetails(e.target.value)}
-          placeholder="تفاصيل الحساب"
+          className="border w-full px-3 py-2 rounded"
+          placeholder="معرف حسابك داخل اللعبة"
+          value={form.accountId}
+          onChange={(e) => setForm({ ...form, accountId: e.target.value })}
         />
 
         <input
-          type="number"
-          className="border p-2 rounded w-full"
-          value={quantity}
-          onChange={(e) => setQuantity(Number(e.target.value))}
-          placeholder="الكمية"
-          min={1}
+          className="border w-full px-3 py-2 rounded"
+          placeholder="عدد الألماس"
+          value={form.amount}
+          onChange={(e) => setForm({ ...form, amount: e.target.value })}
         />
 
-        <input
-          type="number"
-          className="border p-2 rounded w-full"
-          value={price}
-          onChange={(e) => setPrice(Number(e.target.value))}
-          placeholder="سعر الوحدة"
-          min={1}
-        />
-
-        <button className="bg-emerald-600 text-white p-2 w-full rounded">
-          إنشاء الطلب
+        <button className="w-full bg-green-600 text-white py-2 rounded">
+          إرسال الطلب
         </button>
       </form>
+
+      {msg && <div className="mt-4 text-center text-blue-700">{msg}</div>}
     </div>
   );
 }
