@@ -1,55 +1,120 @@
-// admin.js
+// routes/admin.js
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
+const { run, get, all } = require('../db');
 const jwt = require('jsonwebtoken');
+
 const JWT_SECRET = process.env.JWT_SECRET || 'devsecret';
 
-function isAdmin(req) {
-  const a = req.headers.authorization;
-  if (!a) return false;
+function getPayload(req) {
   try {
-    const p = jwt.verify(a.replace('Bearer ','').trim(), JWT_SECRET);
-    const u = db.prepare('SELECT isAdmin FROM users WHERE id = ?').get(p.userId);
-    return u && u.isAdmin === 1;
-  } catch (e) { return false; }
+    const h = req.headers.authorization;
+    if (!h) return null;
+    return jwt.verify(h.replace('Bearer ', '').trim(), JWT_SECRET);
+  } catch (e) {
+    return null;
+  }
 }
 
-// get all orders
-router.get('/orders', (req,res) => {
-  if (!isAdmin(req)) return res.status(403).json({ error: 'forbidden' });
-  const rows = db.prepare('SELECT * FROM orders ORDER BY createdAt DESC').all();
-  res.json({ orders: rows });
+async function ensureAdmin(req) {
+  const p = getPayload(req);
+  if (!p) return null;
+  const u = await get("SELECT isAdmin FROM users WHERE id = ?", [p.userId]);
+  if (!u || u.isAdmin !== 1) return null;
+  return p;
+}
+
+// list users
+router.get('/users', async (req, res) => {
+  try {
+    const ok = await ensureAdmin(req);
+    if (!ok) return res.status(403).json({ error: 'forbidden' });
+    const rows = await all("SELECT id,name,email,wallet,isAdmin FROM users ORDER BY id DESC", []);
+    res.json({ users: rows });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'server' });
+  }
+});
+
+// list all orders
+router.get('/orders', async (req, res) => {
+  try {
+    const ok = await ensureAdmin(req);
+    if (!ok) return res.status(403).json({ error: 'forbidden' });
+    const rows = await all("SELECT * FROM orders ORDER BY createdAt DESC", []);
+    res.json({ orders: rows });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'server' });
+  }
 });
 
 // update order status
-router.post('/orders/:id/status', (req,res) => {
-  if (!isAdmin(req)) return res.status(403).json({ error: 'forbidden' });
-  const { status } = req.body;
-  db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(status, req.params.id);
-  res.json({ ok: true });
+router.post('/update', async (req, res) => {
+  try {
+    const ok = await ensureAdmin(req);
+    if (!ok) return res.status(403).json({ error: 'forbidden' });
+    const { id, status, note } = req.body;
+    await run("UPDATE orders SET status = ?, note = ? WHERE id = ?", [status || 'pending', note || null, id]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'server' });
+  }
 });
 
-// add credit to user
-router.post('/users/:id/credit', (req,res) => {
-  if (!isAdmin(req)) return res.status(403).json({ error: 'forbidden' });
-  const amount = Number(req.body.amount);
-  db.prepare('UPDATE users SET wallet = wallet + ? WHERE id = ?').run(amount, req.params.id);
-  res.json({ ok: true });
+// add credit
+router.post('/wallet', async (req, res) => {
+  try {
+    const ok = await ensureAdmin(req);
+    if (!ok) return res.status(403).json({ error: 'forbidden' });
+    const { userId, amount } = req.body;
+    await run("UPDATE users SET wallet = wallet + ? WHERE id = ?", [Number(amount), userId]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'server' });
+  }
 });
 
-// packages (get / add / delete)
-router.get('/packages', (req,res) => {
-  if (!isAdmin(req)) return res.status(403).json({ error: 'forbidden' });
-  const rows = db.prepare('SELECT * FROM packages').all();
-  res.json({ packages: rows });
+// packages
+router.get('/packages', async (req, res) => {
+  try {
+    const ok = await ensureAdmin(req);
+    if (!ok) return res.status(403).json({ error: 'forbidden' });
+    const rows = await all("SELECT * FROM packages ORDER BY price DESC", []);
+    res.json({ packages: rows });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'server' });
+  }
 });
 
-router.post('/packages', (req,res) => {
-  if (!isAdmin(req)) return res.status(403).json({ error: 'forbidden' });
-  const { id, label, quantity, price, currency } = req.body;
-  db.prepare('INSERT INTO packages (id,label,quantity,price,currency) VALUES (?,?,?,?,?)').run(id, label, quantity, price, currency);
-  res.json({ ok: true });
+router.post('/packages', async (req, res) => {
+  try {
+    const ok = await ensureAdmin(req);
+    if (!ok) return res.status(403).json({ error: 'forbidden' });
+    const { id, label, quantity, price, currency } = req.body;
+    await run("INSERT INTO packages (id,label,quantity,price,currency) VALUES (?,?,?,?,?)", [id, label, quantity, price, currency || 'USD']);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'server' });
+  }
+});
+
+router.post('/packages/delete', async (req, res) => {
+  try {
+    const ok = await ensureAdmin(req);
+    if (!ok) return res.status(403).json({ error: 'forbidden' });
+    const { id } = req.body;
+    await run("DELETE FROM packages WHERE id = ?", [id]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'server' });
+  }
 });
 
 module.exports = router;
