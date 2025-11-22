@@ -1,73 +1,70 @@
 import React, { useState } from "react";
-import { apiPost } from "../api";
+import { Navigate } from "react-router-dom";
 
-export default function Auth({ onLogin }) {
+export default function Auth({ login, register, session }) {
   const [mode, setMode] = useState("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
+  const [form, setForm] = useState({ email: "", password: "", name: "" });
+  const [error, setError] = useState("");
 
-  async function handleRegister(e) {
-    e.preventDefault();
-    const res = await apiPost("/auth/register", { name, email, password });
-    if (!res.ok) return alert(res.error);
-    onLogin({ id: res.userId, email, name, wallet: 0 });
-  }
+  if (session) return <Navigate to="/" />;
 
-  async function handleLogin(e) {
+  async function submit(e) {
     e.preventDefault();
-    const res = await apiPost("/auth/login", { email, password });
-    if (!res.ok) return alert(res.error);
-    onLogin(res.user);
+    setError("");
+
+    let r;
+    if (mode === "login") {
+      r = await login(form);
+    } else {
+      r = await register(form);
+    }
+
+    if (!r.ok) setError(r.error);
   }
 
   return (
-    <div className="p-6 max-w-md mx-auto mt-20 border rounded shadow">
+    <div className="p-6 max-w-md mx-auto">
       <h2 className="text-xl font-bold mb-4">
-        {mode === "login" ? "تسجيل دخول" : "إنشاء حساب"}
+        {mode === "login" ? "تسجيل الدخول" : "إنشاء حساب"}
       </h2>
 
-      <form onSubmit={mode === "login" ? handleLogin : handleRegister}>
-
+      <form onSubmit={submit} className="space-y-4">
         {mode === "register" && (
           <input
             placeholder="الاسم"
-            className="border p-2 w-full mb-2"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
+            className="border w-full px-3 py-2 rounded"
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
           />
         )}
 
         <input
-          placeholder="البريد"
-          className="border p-2 w-full mb-2"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
+          placeholder="البريد الإلكتروني"
+          className="border w-full px-3 py-2 rounded"
+          onChange={(e) => setForm({ ...form, email: e.target.value })}
         />
 
         <input
           placeholder="كلمة المرور"
           type="password"
-          className="border p-2 w-full mb-2"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
+          className="border w-full px-3 py-2 rounded"
+          onChange={(e) => setForm({ ...form, password: e.target.value })}
         />
 
-        <button className="bg-blue-600 text-white p-2 w-full rounded">
+        {error && <div className="text-red-600">{error}</div>}
+
+        <button
+          className="w-full bg-blue-600 text-white py-2 rounded"
+          type="submit"
+        >
           {mode === "login" ? "دخول" : "تسجيل"}
         </button>
       </form>
 
       <button
-        className="text-blue-600 mt-3"
         onClick={() => setMode(mode === "login" ? "register" : "login")}
+        className="mt-4 text-blue-600"
       >
-        {mode === "login"
-          ? "إنشاء حساب جديد"
-          : "لديك حساب؟ تسجّل دخول"}
+        {mode === "login" ? "إنشاء حساب جديد" : "لدي حساب بالفعل"}
       </button>
     </div>
   );
