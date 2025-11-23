@@ -1,17 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Home from "./Home";
-import Auth from "./Auth";
-import Wallet from "./Wallet";
-import OrderForm from "./OrderForm";
-import Products from "./Products";
-import Orders from "./Orders";
-import Admin from "./Admin";
+import Home from "./pages/Home";
+import Auth from "./pages/Auth";
+import Wallet from "./pages/Wallet";
+import OrderForm from "./pages/OrderForm";
+import Products from "./pages/Products";
+import Orders from "./pages/Orders";
+import Admin from "./pages/Admin";
 
-// رابط الباك-إند
 const API = "https://order-charging-webap.onrender.com";
 
-// دوال الطلبات
 async function apiGet(path, token) {
   const res = await fetch(API + path, {
     headers: token ? { Authorization: "Bearer " + token } : {},
@@ -40,7 +38,6 @@ export default function App() {
 
   const token = session?.token;
 
-  // تسجيل الدخول
   async function login({ email, password }) {
     const r = await apiPost("/api/auth/login", { email, password });
     if (r.error) return { ok: false, error: r.error };
@@ -53,7 +50,6 @@ export default function App() {
     return { ok: true };
   }
 
-  // تسجيل حساب جديد
   async function register({ email, password, name }) {
     const r = await apiPost("/api/auth/register", { email, password, name });
     if (r.error) return { ok: false, error: r.error };
@@ -66,26 +62,20 @@ export default function App() {
     return { ok: true };
   }
 
-  // تسجيل الخروج
   function logout() {
     localStorage.removeItem("token");
     localStorage.removeItem("me");
     setSession(null);
   }
 
-  // تنفيذ طلب شحن
   async function placeOrder(orderData) {
-    const r = await apiPost("/api/orders", orderData, token);
-    return r;
+    return apiPost("/api/orders", orderData, token);
   }
 
-  // جلب طلباتي
   async function fetchMyOrders() {
-    const r = await apiGet("/api/orders/my", token);
-    return r;
+    return apiGet("/api/orders/my", token);
   }
 
-  // جلب المنتجات
   async function fetchProducts() {
     return apiGet("/api/products");
   }
@@ -100,10 +90,7 @@ export default function App() {
           element={<Auth login={login} register={register} session={session} />}
         />
 
-        <Route
-          path="/wallet"
-          element={<Wallet session={session} />}
-        />
+        <Route path="/wallet" element={<Wallet session={session} />} />
 
         <Route
           path="/order"
@@ -116,25 +103,14 @@ export default function App() {
           }
         />
 
-        <Route
-          path="/products"
-          element={<Products fetchProducts={fetchProducts} />}
-        />
+        <Route path="/products" element={<Products fetchProducts={fetchProducts} />} />
 
-        <Route
-          path="/orders"
-          element={<Orders fetchMyOrders={fetchMyOrders} />}
-        />
+        <Route path="/orders" element={<Orders fetchMyOrders={fetchMyOrders} />} />
 
         <Route
           path="/admin"
           element={
-            <Admin
-              session={session}
-              logout={logout}
-              apiGet={apiGet}
-              apiPost={apiPost}
-            />
+            <Admin session={session} logout={logout} apiGet={apiGet} apiPost={apiPost} />
           }
         />
       </Routes>
